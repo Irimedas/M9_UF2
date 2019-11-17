@@ -51,7 +51,7 @@ public class NauEspaial_B extends javax.swing.JFrame {
 class PanelNau_B extends JPanel implements Runnable, KeyListener {
 	private int numNaus = 10;
 	Nau_B[] array_enemics;
-	ArrayList<Dispar_B> dispars = new ArrayList<Dispar_B>();
+	static ArrayList<Dispar_B> dispars = new ArrayList<Dispar_B>();
 	Nau_B nauPropia;
 	
 	boolean test = false;
@@ -62,12 +62,12 @@ class PanelNau_B extends JPanel implements Runnable, KeyListener {
 	private int maring_x = 460;
 	private int maring_y = 520;
 	
+	private Thread tread = null;
 
 	public PanelNau_B() {
 		
 		// Creo la nau propia
 		// nauPropia_exemple = new Nau_B("", x, y, dsx, dsy, v, enemy)
-		// nauPropia = new Nau_B("NauNostra", 200, 400, 10, 0, 100, false);
 		nauPropia = new Nau_B("NauNostra", 200, 400, 0, 0, 5, false, test, this.maring_x, this.maring_y);
 		
 		array_enemics = new Nau_B[numNaus];
@@ -76,15 +76,15 @@ class PanelNau_B extends JPanel implements Runnable, KeyListener {
 			int velocitat = (rand.nextInt(3) + 5) * 10;
 			int posX = rand.nextInt(100) + 200;
 			int posY = rand.nextInt(100) + 150;
-			int movimentX = rand.nextInt(4) + (-1);
-			int movimentY = rand.nextInt(4) + (-1);
+			int movimentX = rand.nextInt(10) + (-5);
+			int movimentY = rand.nextInt(10) + (-5);
 			String nomNau = "Nau_enemiga: " + i;
 			array_enemics[i] = new Nau_B(nomNau, posX, posY, movimentX, movimentY, velocitat, true, test, this.maring_x, this.maring_y);
 		}
 
 		// Creo fil per anar pintant cada 0,1 segons el joc per pantalla
-		Thread n = new Thread(this);
-		n.start();
+		this.tread = new Thread(this);
+		this.tread.start();
 
 		// Creo listeners per a que el fil principal del programa gestioni
 		// esdeveniments del teclat
@@ -96,42 +96,53 @@ class PanelNau_B extends JPanel implements Runnable, KeyListener {
 	public void run() {
 		System.out.println("Inici fil repintar");
 		boolean colision = false;
+		boolean are_enemy = true;
 		
-		while (!colision) {	
-			//detectarColisionsDisparsAliats(dispars, array_enemics);
-			
+		while (!colision && are_enemy) {	
+			detectarColisionsDisparsAliats(dispars, array_enemics);
 			colision = detectarColisionsNaus(array_enemics, nauPropia);
 			if(colisions_permeses > 0 && colision) {
 				colision = false;
 				this.colisions_permeses--;
 				System.out.println("Vidas actuales: " + (colisions_permeses));
 			}
+			
+			are_enemy = quedanEnemics(array_enemics);
 			repaint();
 		}
-		
-		if(colision) {
-			nauPropia.kill();
-			for (int i = 0; i < array_enemics.length; i++) {
-				if(array_enemics[i] != null) {
-					array_enemics[i].kill();	
-				}
+
+		nauPropia.kill();
+		for (int i = 0; i < array_enemics.length; i++) {
+			if(array_enemics[i] != null) {
+				array_enemics[i].kill();	
 			}
 		}
+		for (int i = 0; i < dispars.size(); i++) {
+			dispars.get(i).kill();
+		}
+		
+		dispars.clear();
 		
 		System.out.println("Game Over");
+		this.tread.interrupt();
 	}
 
 	public void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		
 		for (int i = 0; i < dispars.size(); i++) {
-			int[] posicion_disparo = dispars.get(i).getPosition();
-			if((posicion_disparo[0] == 0 || posicion_disparo[0] == this.maring_x)||
-				(posicion_disparo[1] == 0 || posicion_disparo[1] == this.maring_y)) {
-				dispars.get(i).kill();
-				dispars.remove(i);
-			}else{
-				dispars.get(i).pinta(g);
+			if(dispars.get(i) != null) {
+				int[] posicion_disparo = dispars.get(i).getPosition();
+				if((posicion_disparo[0] == 0 || posicion_disparo[0] == this.maring_x)||(posicion_disparo[1] == 0 || posicion_disparo[1] == this.maring_y)) {
+					dispars.get(i).kill();
+					
+				}else if(!dispars.get(i).isNotDead()){
+					dispars.remove(i);
+					i--;
+					
+				}else{
+					dispars.get(i).pinta(g);
+				}
 			}
 		}
 		
@@ -178,13 +189,15 @@ class PanelNau_B extends JPanel implements Runnable, KeyListener {
 		}
 		
 		//tecla: A
-		if (e.getKeyCode() == 65) {
-			if(this.fantasma_permesos > 0) {
-				nauPropia.boom();
-				this.fantasma = true;
-				System.out.println("Modo fantasma restantes: " + (this.fantasma_permesos - 1));
-				this.fantasma_permesos--;
-			}
+		if(!this.test) {
+			if (e.getKeyCode() == 65) {
+				if(this.fantasma_permesos > 0) {
+					nauPropia.boom();
+					this.fantasma = true;
+					System.out.println("Modo fantasma restantes: " + (this.fantasma_permesos - 1));
+					this.fantasma_permesos--;
+				}
+			}	
 		}
 	}
 
@@ -219,28 +232,46 @@ class PanelNau_B extends JPanel implements Runnable, KeyListener {
 	}
 	
 	//Programar para detectar las colisiones entre los disparos aliados i las naves (No detecta las coilisiones entre disparos i enemigos)
-//	public void detectarColisionsDisparsAliats(ArrayList<Dispar_B> dispars, Nau_B[] array_enemics) {
-//		
-//		for (int i = 0; i < array_enemics.length; i++) {
-//			for (int j = 0; j < dispars.size(); j++) {
-//				if(array_enemics[i] != null) {
-//					int[] posicio_enemic = array_enemics[i].getPosition();
-//					int[] posicio_dispar = dispars.get(j).getPosition();
-//					
-//					//Deteccio de colsions en base al centre del punt
-//					if((((posicio_enemic[0] + 10) >= posicio_dispar[0]) && ((posicio_enemic[0] - 10) <= posicio_dispar[0]))&&
-//						(((posicio_enemic[1] + 10) >= posicio_dispar[1]) && ((posicio_enemic[1] - 10) <= posicio_dispar[1]))) {
-//						
-//						array_enemics[i].kill();
-//						array_enemics[i] = null;
-//						
-//						//dispars.get(j).kill();
-//						System.out.println("Impacto");
-//					}		
-//				}
-//			}
-//		}
-//	}
+	public void detectarColisionsDisparsAliats(ArrayList<Dispar_B> dispars, Nau_B[] array_enemics) {
+		
+		for (int i = 0; i < array_enemics.length; i++) {
+			for (int j = 0; j < dispars.size(); j++) {
+				if(array_enemics[i] != null) {
+					int[] posicio_enemic = array_enemics[i].getPosition();
+					
+					//Esta aplicat per relentitzar la execució de la funció(Si no, genera un NullPointExeption)
+//                    Math.cos(999999999);
+					
+                    if(dispars.get(j) != null) {
+						int[] posicio_dispar = dispars.get(j).getPosition();
+						
+						//Deteccio de colsions en base al centre del punt
+						if((((posicio_enemic[0] + 10) >= posicio_dispar[0]) && ((posicio_enemic[0] - 10) <= posicio_dispar[0]))&&
+							(((posicio_enemic[1] + 10) >= posicio_dispar[1]) && ((posicio_enemic[1] - 10) <= posicio_dispar[1]))) {
+							
+							array_enemics[i].kill();
+							array_enemics[i] = null;
+							
+							dispars.get(j).kill();
+							System.out.println("Impacto");
+						}
+					}		
+				}
+			}
+		}
+	}
+	
+	public boolean quedanEnemics(Nau_B[] array_enemics){
+		
+		boolean comprovacio = false;
+		
+		for (int i = 0; i < array_enemics.length; i++) {
+			if(array_enemics[i] != null) {
+				comprovacio = true;
+			}
+		}
+		return comprovacio;
+	}
 }
 
 //------------------------------------------------------------------
@@ -537,5 +568,9 @@ class Dispar_B extends Thread {
 			this.y
 		};
 		return position;
+	}
+	
+	public boolean isNotDead() {
+		return this.alive;
 	}
 }
