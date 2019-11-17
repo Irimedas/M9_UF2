@@ -49,7 +49,7 @@ public class NauEspaial_B extends javax.swing.JFrame {
 //------------------------------------------------------------------
 
 class PanelNau_B extends JPanel implements Runnable, KeyListener {
-	private int numNaus = 10;
+	private int numNaus = 30;
 	Nau_B[] array_enemics;
 	static ArrayList<Dispar_B> dispars = new ArrayList<Dispar_B>();
 	Nau_B nauPropia;
@@ -261,6 +261,7 @@ class PanelNau_B extends JPanel implements Runnable, KeyListener {
 		}
 	}
 	
+	//Funció que comprova si totes les posicions del array d'enemics son null.
 	public boolean quedanEnemics(Nau_B[] array_enemics){
 		
 		boolean comprovacio = false;
